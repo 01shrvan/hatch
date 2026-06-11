@@ -1,6 +1,7 @@
 import { router, publicProcedure } from "@/server/trpc";
 import { db } from "@/lib/db";
-import { projects, deploys } from "@/lib/db/schema";
+import { deployments, projects } from "@/lib/db/schema";
+import { ensureProjectRepo } from "@/lib/runtime/git";
 import { eq, and, desc } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { z } from "zod";
@@ -34,32 +35,36 @@ export const projectsRouter = router({
       const [existing] = await db.select({ id: projects.id }).from(projects).where(eq(projects.slug, slug));
       if (existing) slug = `${slug}-${createId().slice(0, 5)}`;
 
-      const [project] = await db.insert(projects).values({ name: input.name, slug }).returning();
+      const repoPath = await ensureProjectRepo(slug);
+      const [project] = await db
+        .insert(projects)
+        .values({ name: input.name, slug, repoPath })
+        .returning();
       return project;
     }),
 
-  deploys: publicProcedure
+  deployments: publicProcedure
     .input(z.object({ projectId: z.string() }))
     .query(async ({ input }) => {
       return db
         .select()
-        .from(deploys)
-        .where(eq(deploys.projectId, input.projectId))
-        .orderBy(desc(deploys.createdAt));
+        .from(deployments)
+        .where(eq(deployments.projectId, input.projectId))
+        .orderBy(desc(deployments.createdAt));
     }),
 
-  setActiveDeploy: publicProcedure
-    .input(z.object({ projectId: z.string(), deployId: z.string() }))
+  setActiveDeployment: publicProcedure
+    .input(z.object({ projectId: z.string(), deploymentId: z.string() }))
     .mutation(async ({ input }) => {
-      const [deploy] = await db
-        .select({ id: deploys.id })
-        .from(deploys)
-        .where(and(eq(deploys.id, input.deployId), eq(deploys.projectId, input.projectId)));
-      if (!deploy) throw new Error("Deploy not found");
+      const [deployment] = await db
+        .select({ id: deployments.id })
+        .from(deployments)
+        .where(and(eq(deployments.id, input.deploymentId), eq(deployments.projectId, input.projectId)));
+      if (!deployment) throw new Error("deployment not found");
 
       const [project] = await db
         .update(projects)
-        .set({ activeDeployId: input.deployId })
+        .set({ activeDeploymentId: input.deploymentId })
         .where(eq(projects.id, input.projectId))
         .returning();
       return project;

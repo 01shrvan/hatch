@@ -1,58 +1,54 @@
 import { db } from "@/lib/db";
-import { projects, files } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { deployments, projects } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function findFile(deployId: string, path: string) {
-  const [file] = await db
-    .select()
-    .from(files)
-    .where(and(eq(files.deployId, deployId), eq(files.path, path)));
-  return file ?? null;
-}
-
-export async function GET(
+async function handler(
   req: Request,
   { params }: { params: Promise<{ slug: string; path?: string[] }> },
 ) {
   const { slug, path } = await params;
-
   const [project] = await db.select().from(projects).where(eq(projects.slug, slug));
-  if (!project || !project.activeDeployId) {
-    return new Response("Site not found", { status: 404 });
+  if (!project?.activeDeploymentId) {
+    return new Response("app not found", { status: 404 });
   }
 
-  const deployId = project.activeDeployId;
-  let rel = (path ?? []).join("/");
-  if (rel === "" || rel.endsWith("/")) rel += "index.html";
+  const [deployment] = await db
+    .select()
+    .from(deployments)
+    .where(eq(deployments.id, project.activeDeploymentId));
 
-  let file = await findFile(deployId, rel);
-  if (!file && !rel.includes(".")) {
-    file = await findFile(deployId, `${rel}/index.html`);
+  if (!deployment?.hostPort || deployment.status !== "RUNNING") {
+    return new Response("app is not running", { status: 503 });
   }
 
-  if (!file) {
-    const notFound = await findFile(deployId, "404.html");
-    const body = notFound ? Buffer.from(notFound.content, "base64") : "404 — Not found";
-    return new Response(body, {
-      status: 404,
-      headers: { "Content-Type": notFound?.contentType ?? "text/plain; charset=utf-8" },
+  const source = new URL(req.url);
+  const targetPath = `/${(path ?? []).join("/")}`;
+  const target = new URL(`http://127.0.0.1:${deployment.hostPort}${targetPath}`);
+  target.search = source.search;
+
+  const headers = new Headers(req.headers);
+  headers.set("host", `127.0.0.1:${deployment.hostPort}`);
+
+  try {
+    return await fetch(target, {
+      method: req.method,
+      headers,
+      body: req.method === "GET" || req.method === "HEAD" ? undefined : req.body,
+      redirect: "manual",
+      // @ts-expect-error required for streaming request bodies in Node fetch
+      duplex: "half",
     });
+  } catch {
+    return new Response("app gateway error", { status: 502 });
   }
-
-  const etag = `"${deployId}:${rel}"`;
-  if (req.headers.get("if-none-match") === etag) {
-    return new Response(null, { status: 304, headers: { ETag: etag } });
-  }
-
-  return new Response(Buffer.from(file.content, "base64"), {
-    status: 200,
-    headers: {
-      "Content-Type": file.contentType,
-      "Cache-Control": "public, max-age=0, must-revalidate",
-      ETag: etag,
-    },
-  });
 }
+
+export const GET = handler;
+export const POST = handler;
+export const PUT = handler;
+export const PATCH = handler;
+export const DELETE = handler;
+export const HEAD = handler;

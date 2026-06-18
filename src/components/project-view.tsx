@@ -12,7 +12,7 @@ import {
   Rocket01Icon,
 } from "@hugeicons/core-free-icons";
 import { useTRPC } from "@/lib/trpc/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { toast } from "sonner";
 
@@ -24,18 +24,21 @@ type LogRow = {
 };
 
 function fmtDate(d: string | Date) {
-  return new Date(d).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).toLowerCase();
+  return new Date(d)
+    .toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    .toLowerCase();
 }
 
 function statusClass(status?: string) {
   if (status === "RUNNING") return "text-emerald-500";
   if (status === "FAILED") return "text-red-500";
-  if (status === "BUILDING" || status === "STARTING" || status === "QUEUED") return "text-amber-500";
+  if (status === "BUILDING" || status === "STARTING" || status === "QUEUED")
+    return "text-amber-500";
   return "text-muted-foreground";
 }
 
@@ -86,8 +89,19 @@ function LiveLogs({ deploymentId }: { deploymentId?: string }) {
         <p className="text-[#7a8780]">waiting for log lines...</p>
       ) : (
         rows.map((row) => (
-          <p key={row.id} className={row.stream === "stderr" ? "text-red-300" : row.stream === "system" ? "text-emerald-300" : ""}>
-            <span className="mr-3 text-[#64706a]">{String(row.sequence).padStart(4, "0")}</span>
+          <p
+            key={row.id}
+            className={
+              row.stream === "stderr"
+                ? "text-red-300"
+                : row.stream === "system"
+                  ? "text-emerald-300"
+                  : ""
+            }
+          >
+            <span className="mr-3 text-[#64706a]">
+              {String(row.sequence).padStart(4, "0")}
+            </span>
             {row.message}
           </p>
         ))
@@ -99,7 +113,9 @@ function LiveLogs({ deploymentId }: { deploymentId?: string }) {
 export function ProjectView({ slug }: { slug: string }) {
   const trpc = useTRPC();
   const qc = useQueryClient();
-  const { data: project, isLoading } = useQuery(trpc.projects.get.queryOptions({ slug }));
+  const { data: project, isLoading } = useQuery(
+    trpc.projects.get.queryOptions({ slug }),
+  );
   const { data: deployments } = useQuery(
     trpc.projects.deployments.queryOptions(
       { projectId: project?.id ?? "" },
@@ -110,10 +126,14 @@ export function ProjectView({ slug }: { slug: string }) {
   const setActive = useMutation(
     trpc.projects.setActiveDeployment.mutationOptions({
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: trpc.projects.get.queryOptions({ slug }).queryKey });
+        qc.invalidateQueries({
+          queryKey: trpc.projects.get.queryOptions({ slug }).queryKey,
+        });
         if (project?.id) {
           qc.invalidateQueries({
-            queryKey: trpc.projects.deployments.queryOptions({ projectId: project.id }).queryKey,
+            queryKey: trpc.projects.deployments.queryOptions({
+              projectId: project.id,
+            }).queryKey,
           });
         }
         toast.success("deployment promoted");
@@ -123,7 +143,10 @@ export function ProjectView({ slug }: { slug: string }) {
   );
 
   const active = useMemo(
-    () => deployments?.find((deployment) => deployment.id === project?.activeDeploymentId) ?? deployments?.[0],
+    () =>
+      deployments?.find(
+        (deployment) => deployment.id === project?.activeDeploymentId,
+      ) ?? deployments?.[0],
     [deployments, project?.activeDeploymentId],
   );
 
@@ -146,7 +169,10 @@ export function ProjectView({ slug }: { slug: string }) {
         <SiteHeader />
         <main className="mx-auto min-h-[calc(100dvh-57px)] max-w-7xl border-x p-6">
           <p className="text-sm text-muted-foreground">project not found.</p>
-          <Link href="/" className="mt-3 inline-block text-sm underline underline-offset-4">
+          <Link
+            href="/"
+            className="mt-3 inline-block text-sm underline underline-offset-4"
+          >
             back
           </Link>
         </main>
@@ -161,24 +187,36 @@ export function ProjectView({ slug }: { slug: string }) {
         <section className="relative border-b px-4 py-6 sm:px-6">
           <div className="absolute bottom-0 left-0 z-10 size-2 -translate-x-1/2 translate-y-1/2 border bg-background" />
           <div className="absolute right-0 bottom-0 z-10 size-2 translate-x-1/2 translate-y-1/2 border bg-background" />
-          <Link href="/" className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground">
+          <Link
+            href="/"
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground"
+          >
             projects
           </Link>
           <div className="mt-4 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
               <div className="flex items-center gap-3">
-                <span className={`size-2 ${statusClass(active?.status).replace("text-", "bg-")}`} />
-                <h1 className="text-4xl font-semibold tracking-tight">{project.name}</h1>
+                <span
+                  className={`size-2 ${statusClass(active?.status).replace("text-", "bg-")}`}
+                />
+                <h1 className="text-4xl font-semibold tracking-tight">
+                  {project.name}
+                </h1>
               </div>
-              <p className="mt-2 font-mono text-xs text-muted-foreground">{project.slug}.{root}</p>
+              <p className="mt-2 font-mono text-xs text-muted-foreground">
+                {project.slug}.{root}
+              </p>
             </div>
             <div className="flex gap-2">
-              <Button asChild variant="outline" size="sm">
-                <a href={`/sites/${project.slug}`} target="_blank" rel="noreferrer">
-                  <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
-                  visit
-                </a>
-              </Button>
+              <a
+                href={`/sites/${project.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
+                visit
+              </a>
             </div>
           </div>
         </section>
@@ -191,7 +229,9 @@ export function ProjectView({ slug }: { slug: string }) {
                 git remote
               </div>
               <div className="space-y-2">
-                <CopyCommand value={`git remote add hatch "${project.repoPath}"`} />
+                <CopyCommand
+                  value={`git remote add hatch "${project.repoPath}"`}
+                />
                 <CopyCommand value="git push hatch main" />
               </div>
             </div>
@@ -208,22 +248,34 @@ export function ProjectView({ slug }: { slug: string }) {
           <aside className="min-w-0">
             <div className="border-b p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">current</h2>
-                <HugeiconsIcon icon={Rocket01Icon} size={16} className={statusClass(active?.status)} />
+                <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  current
+                </h2>
+                <HugeiconsIcon
+                  icon={Rocket01Icon}
+                  size={16}
+                  className={statusClass(active?.status)}
+                />
               </div>
               {active ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between gap-3">
                     <span className="text-muted-foreground">status</span>
-                    <span className={`font-mono ${statusClass(active.status)}`}>{active.status.toLowerCase()}</span>
+                    <span className={`font-mono ${statusClass(active.status)}`}>
+                      {active.status.toLowerCase()}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-3">
                     <span className="text-muted-foreground">commit</span>
-                    <span className="font-mono">{active.commitSha.slice(0, 12)}</span>
+                    <span className="font-mono">
+                      {active.commitSha.slice(0, 12)}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-3">
                     <span className="text-muted-foreground">host port</span>
-                    <span className="font-mono">{active.hostPort ?? "pending"}</span>
+                    <span className="font-mono">
+                      {active.hostPort ?? "pending"}
+                    </span>
                   </div>
                   {active.failureReason && (
                     <p className="border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-500">
@@ -249,13 +301,22 @@ export function ProjectView({ slug }: { slug: string }) {
                   {deployments.map((deployment, index) => {
                     const isLive = deployment.id === project.activeDeploymentId;
                     return (
-                      <div key={deployment.id} className={`p-3 ${index > 0 ? "border-t" : ""}`}>
+                      <div
+                        key={deployment.id}
+                        className={`p-3 ${index > 0 ? "border-t" : ""}`}
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-mono text-xs">{deployment.commitSha.slice(0, 12)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{fmtDate(deployment.createdAt)}</p>
+                            <p className="font-mono text-xs">
+                              {deployment.commitSha.slice(0, 12)}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {fmtDate(deployment.createdAt)}
+                            </p>
                           </div>
-                          <span className={`font-mono text-[10px] uppercase tracking-[0.14em] ${statusClass(deployment.status)}`}>
+                          <span
+                            className={`font-mono text-[10px] uppercase tracking-[0.14em] ${statusClass(deployment.status)}`}
+                          >
                             {deployment.status.toLowerCase()}
                           </span>
                         </div>
@@ -265,7 +326,12 @@ export function ProjectView({ slug }: { slug: string }) {
                             size="sm"
                             className="mt-3 h-7 px-2"
                             disabled={setActive.isPending}
-                            onClick={() => setActive.mutate({ projectId: project.id, deploymentId: deployment.id })}
+                            onClick={() =>
+                              setActive.mutate({
+                                projectId: project.id,
+                                deploymentId: deployment.id,
+                              })
+                            }
                           >
                             promote
                           </Button>
